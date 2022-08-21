@@ -1,0 +1,34 @@
+type Query {
+    customers: [Customer]
+    customerById(id: ID): Customer
+    profileById(id: ID): Profile
+    hello: String
+    helloWithName(name: String): String
+    getStudents: [Student]
+}
+
+type Customer {
+    id: ID
+    name: String
+    profile: Profile
+}
+
+type Profile {
+    id: ID
+    customerId: ID
+}
+
+type Student {
+    id: ID
+    name: String
+    department: Department
+}
+
+type Department {
+    id: ID
+    departmentName: String
+}
+
+type Mutation {
+    addStudent(studentName: String): Student
+}
