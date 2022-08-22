@@ -5,9 +5,20 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.graphql.data.method.annotation.*;
 import org.springframework.graphql.execution.RuntimeWiringConfigurer;
+import org.springframework.security.access.annotation.Secured;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableReactiveMethodSecurity;
+import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.core.userdetails.MapReactiveUserDetailsService;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.WebFilter;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -17,12 +28,56 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@EnableReactiveMethodSecurity
 @SpringBootApplication
 public class GraphqlengineApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(GraphqlengineApplication.class, args);
 	}
+
+	@Bean
+	MapReactiveUserDetailsService authentication() {
+		var users = Map.of(
+				"pallab", new String[] {"USER"},
+				"arnold", new String[] {"ADMIN"},
+				"steve", new String[] {"ADMIN", "USER"})
+				.entrySet()
+				.stream()
+				.map(stringEntry -> User.withDefaultPasswordEncoder()
+						.username(stringEntry.getKey())
+						.password("pass")
+						.roles(stringEntry.getValue())
+						.build()
+				)
+				.toList();
+
+		return new MapReactiveUserDetailsService(users);
+	}
+
+	@Bean
+	SecurityWebFilterChain authorization(ServerHttpSecurity httpSecurity) {
+		return httpSecurity
+				.csrf(csrfSpec -> csrfSpec.disable())
+				.authorizeExchange(authorizeExchangeSpec -> authorizeExchangeSpec.anyExchange().permitAll())
+				.httpBasic(Customizer.withDefaults())
+				.build();
+	}
+
+	/*@Bean
+	SecurityWebFilterChain securityWebFilterChain() {
+		return new SecurityWebFilterChain() {
+			@Override
+			public Mono<Boolean> matches(ServerWebExchange exchange) {
+				return Mono.just(false);
+			}
+
+			@Override
+			public Flux<WebFilter> getWebFilters() {
+				return Flux.empty();
+			}
+		};
+	}*/
 
 	@Bean
 	RuntimeWiringConfigurer runtimeWiringConfigurer(CrmService crmService) {
@@ -49,12 +104,14 @@ record Profile(Integer id, Integer customerId) {}
 
 @Service
 class CrmService {
-	Customer getCustomerById(Integer id) {
-		return new Customer(id, Math.random() > 0.5 ? "A": "B");
+	@Secured("ROLE_USER")
+	Mono<Customer> getCustomerById(Integer id) {
+		return Mono.just(new Customer(id, Math.random() > 0.5 ? "A": "B"));
 	}
-	Collection<Customer> getCustomers() {
-		return List.of(new Customer(1, "A"),
-				new Customer(2, "B"));
+	@PreAuthorize("hasRole('ADMIN')")
+	Flux<Customer> getCustomers() {
+		return Flux.fromStream(List.of(new Customer(1, "A"),
+				new Customer(2, "B")).stream());
 	}
 
 	Profile getProfile(Customer customer) {
@@ -102,6 +159,7 @@ class StudentController {
 				student -> departmentMapping.add(new Department(student.id(), Math.random() > 0.5 ? "Maths": "Geo")));
 	}
 
+	@PreAuthorize("hasRole('ADMIN')")
 	@QueryMapping
 	public Flux<Student> getStudents() {
 		return Flux.fromIterable(studentList);
