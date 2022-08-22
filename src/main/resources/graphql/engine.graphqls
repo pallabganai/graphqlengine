@@ -6,6 +6,9 @@ type Query {
     helloWithName(name: String): String
     getStudents: [Student]
     greeting: Greeting
+    employees: [Employee]
+    employeeById(id: String): Employee
+    employeeByName(name: String): [Employee]
 }
 
 type Customer {
@@ -40,4 +43,14 @@ type Greeting {
 
 type Subscription {
     greetings: Greeting
+}
+
+type Employee {
+    id: ID
+    name: String
+    empProfile: EmpProfile
+}
+
+type EmpProfile {
+    id: ID
 }

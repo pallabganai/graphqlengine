@@ -1,8 +1,16 @@
 package com.example.graphqlengine;
 
+import com.example.graphqlengine.QEmployee;
+import com.querydsl.core.annotations.QueryEntity;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.querydsl.ReactiveQuerydslPredicateExecutor;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
+import org.springframework.graphql.data.GraphQlRepository;
 import org.springframework.graphql.data.method.annotation.*;
 import org.springframework.graphql.execution.RuntimeWiringConfigurer;
 import org.springframework.security.access.annotation.Secured;
@@ -95,6 +103,23 @@ public class GraphqlengineApplication {
 					.dataFetcher("profile", environment -> crmService.getProfile(
 							environment.getSource()
 					)));
+	}
+
+	@Bean
+	ApplicationRunner applicationRunner(EmployeeRepository repository) {
+		return args -> {
+			Flux<Employee> all = repository
+					.findAll(QEmployee.employee.name.startsWith("I").not());
+
+			repository
+					.deleteAll()
+					.thenMany(
+							Flux.just("This", "Is", "My", "Statement")
+									.map(s -> new Employee(null, s))
+									.flatMap(repository::save))
+					.thenMany(all)
+					.subscribe(System.out::println);
+		};
 	}
 }
 
@@ -222,5 +247,25 @@ class StudentController {
 		}
 
 		record Greeting(String greeting) {}
+	}
+}
+
+@GraphQlRepository
+interface EmployeeRepository
+		extends ReactiveCrudRepository<Employee, String>, ReactiveQuerydslPredicateExecutor {
+
+}
+
+@QueryEntity
+@Document
+record Employee(@Id String id, String name) {}
+
+record EmpProfile(@Id String id) {}
+
+@Controller
+class EmpProfileController {
+	@SchemaMapping(typeName = "Employee")
+	EmpProfile empProfile (Employee employee) {
+		return new EmpProfile(employee.id());
 	}
 }
