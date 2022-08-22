@@ -9,9 +9,13 @@ import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @SpringBootApplication
 public class GraphqlengineApplication {
@@ -142,5 +146,23 @@ class StudentController {
 		departmentMapping.add(new Department(student.id(), Math.random() > 0.5 ? "Maths": "Geo"));
 
 		return student;
+	}
+
+	@Controller
+	public class GreetingsController {
+		@QueryMapping
+		public Greeting greeting() {
+			return new Greeting("Hello...");
+		}
+
+		@SubscriptionMapping
+		public Flux<Greeting> greetings() {
+			return Flux
+					.fromStream(Stream.generate(() -> new Greeting("Hello from stream @ " + Instant.now())))
+					.delayElements(Duration.ofSeconds(1))
+					.take(10);
+		}
+
+		record Greeting(String greeting) {}
 	}
 }

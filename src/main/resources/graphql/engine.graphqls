@@ -5,6 +5,7 @@ type Query {
     hello: String
     helloWithName(name: String): String
     getStudents: [Student]
+    greeting: Greeting
 }
 
 type Customer {
@@ -31,4 +32,12 @@ type Department {
 
 type Mutation {
     addStudent(studentName: String): Student
+}
+
+type Greeting {
+    greeting: String
+}
+
+type Subscription {
+    greetings: Greeting
 }
